@@ -5,13 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CPU Scheduling Visualization</title>
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; justify-content: center; }
+        body { font-family: Arial, sans-serif; text-align: center; }
+        table { border-collapse: collapse; width: 80%; margin: 20px auto; }
+        th, td { border: 1px solid black; padding: 8px; text-align: center; }
         canvas { border: 1px solid black; margin-top: 20px; }
     </style>
 </head>
 <body>
+
     <h1>CPU Scheduling Algorithms Visualization</h1>
-    <input type="file" id="fileInput">
+
+    <label for="numberOfProcesses">Number of Processes:</label>
+    <input type="number" id="numberOfProcesses" min="1" value="4">
+    <button onclick="generateTable()">Generate Table</button>
+
     <label for="algorithm">Select Algorithm:</label>
     <select id="algorithm">
         <option value="fcfs">First-Come, First-Served (FCFS)</option>
@@ -23,176 +30,153 @@
         <option value="mlq">Multi-Level Queue</option>
         <option value="mlfq">Multi-Level Feedback Queue</option>
     </select>
-    <button onclick="startSimulation()">Start</button>
-    <div class="chart">
-        <p style="margin-left: 10px; font-weight: 600;">Gantt Chart</p>
-        <canvas id="ganttChart" width="800" height="200"></canvas>
-    </div>
-    <div class="table" >
-        <p style="margin-left: 10px; font-weight: 600;">Process Metrics</p>
-        <table style=" border-collapse: collapse; width: 50%;" border="1">
+    <button onclick="startSimulation()">Start Simulation</button>
+
+    <div class="table">
+        <p style="font-weight: 600;">Process Input Table</p>
+        <table>
             <thead>
                 <tr>
-                    <th style="border: 1px solid black; padding: 8px;">Process</th>
-                    <th style="border: 1px solid black; padding: 8px;">Completion Time</th>
-                    <th style="border: 1px solid black; padding: 8px;">Turnaround Time</th>
-                    <th style="border: 1px solid black; padding: 8px;">Waiting Time</th>
-                    <th style="border: 1px solid black; padding: 8px;">Response Time</th>
+                    <th>Process</th>
+                    <th>Arrival Time</th>
+                    <th>Burst Time</th>
+                    <th>Priority</th>
+                    <th>Queue</th>
+                </tr>
+            </thead>
+            <tbody id="processTable"></tbody>
+        </table>
+    </div>
+
+    <div class="chart">
+        <p style="font-weight: 600;">Gantt Chart</p>
+        <canvas id="ganttChart" width="800" height="200"></canvas>
+    </div>
+
+    <div class="table">
+        <p style="font-weight: 600;">Process Metrics</p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Process</th>
+                    <th>Completion Time</th>
+                    <th>Turnaround Time</th>
+                    <th>Waiting Time</th>
+                    <th>Response Time</th>
                 </tr>
             </thead>
             <tbody id="processMetrics"></tbody>
         </table>
-        
     </div>
+
     <script type="module">
-        import { readTextFile, fcfs, sjfNonPreemptive, sjfPreemptive, priorityScheduling, 
-            prioritySchedulingPreemptive, roundRobin,multilevelFeedbackQueue, multilevelQueue, drawGanttChart } from "./algorithm.js";
-    
+        import { fcfs, sjfNonPreemptive, sjfPreemptive, priorityScheduling, 
+                prioritySchedulingPreemptive, roundRobin, multilevelQueue, multilevelFeedbackQueue, drawGanttChart } from "./algorithm.js";
+
         const canvas = document.getElementById("ganttChart");
         const ctx = canvas.getContext("2d");
-    
+
+        // Generate input table
+        window.generateTable = function() {
+            let numProcesses = document.getElementById("numberOfProcesses").value;
+            let tableBody = document.getElementById("processTable");
+
+            // Xóa nội dung cũ của bảng
+            tableBody.innerHTML = "";
+
+            for (let i = 1; i <= numProcesses; i++) {
+                let row = document.createElement("tr");
+                row.innerHTML = `
+                    <td>P${i}</td>
+                    <td><input type="number" min="0" value="0" class="arrivalTime"></td>
+                    <td><input type="number" min="1" value="1" class="burstTime"></td>
+                    <td><input type="number" min="1" value="1" class="priority"></td>
+                    <td><input type="number" min="0" value="0" class="queue"></td>
+                `;
+                tableBody.appendChild(row);
+            }
+        };
+
+        // Start simulation
         window.startSimulation = function () {
-    const fileInput = document.getElementById("fileInput");
-    
-    if (!fileInput.files.length) {
-        console.error("No file selected.");
-        return;
-    }
+            let processes = [];
+            let tableRows = document.querySelectorAll("#processTable tr");
 
-    const file = fileInput.files[0];
+            // Lấy dữ liệu từ bảng nhập và lưu vào mảng processes
+            tableRows.forEach((row, index) => {
+                let inputs = row.querySelectorAll("input");
+                let process = {
+                    name: `P${index + 1}`,
+                    arrival: parseInt(inputs[0].value),
+                    burst: parseInt(inputs[1].value),
+                    priority: parseInt(inputs[2].value),
+                    queue: parseInt(inputs[3].value)
+                };
+                processes.push(process);
+            });
 
-    readTextFile(file).then((processes) => {
-        console.log("Parsed Data:", processes); // Debugging
+            console.log("Input Processes:", processes); // Debugging
 
-        const algorithm = document.getElementById("algorithm").value;
-        let schedule = [];
-        let result = {};
+            const algorithm = document.getElementById("algorithm").value;
+            let result = {};
+            let schedule = [];
 
-        switch (algorithm) {
-            case "fcfs":
-                result = fcfs(processes);
-                console.log("result: ", result.completedProcesses);
-                console.log("Final Process Metrics:");
-                
-                result.processes.forEach(p => {
-                    console.log(`Process ${p.name} -> CT: ${p.completionTime}, TAT: ${p.turnaroundTime}, WT: ${p.waitingTime}, RT: ${p.responseTime}`);
-                });
-                schedule = result.completedProcesses;
-                break;
-            case "sjf-nonpreemptive":
-                result = sjfPreemptive(processes);
-                schedule = result.completedProcesses;
-                break;
-            case "sjf-preemptive":
-                result = sjfPreemptive(processes);
-                console.log("result: ", result.completedProcesses);
-                console.log("Final Process Metrics:");
-                result.processes.forEach(p => {
-                    console.log(`Process ${p.name} -> CT: ${p.completionTime}, TAT: ${p.turnaroundTime}, WT: ${p.waitingTime}, RT: ${p.responseTime}`);
-                });
-                schedule = result.completedProcesses;
-                break;
-            case "priority":
-                result = priorityScheduling(processes);
-                console.log("result: ", result.completedProcesses);
-                console.log("Final Process Metrics:");
-                
-                result.processes.forEach(p => {
-                    console.log(`Process ${p.name} -> CT: ${p.completionTime}, TAT: ${p.turnaroundTime}, WT: ${p.waitingTime}, RT: ${p.responseTime}`);
-                });
-                schedule = result.completedProcesses;
-                break;
-            case "priority-preemptive":
-                result = prioritySchedulingPreemptive(processes);
-                console.log("result: ", result.completedProcesses);
-                console.log("Final Process Metrics:");
-                
-                result.processes.forEach(p => {
-                    console.log(`Process ${p.name} -> CT: ${p.completionTime}, TAT: ${p.turnaroundTime}, WT: ${p.waitingTime}, RT: ${p.responseTime}`);
-                });
-                schedule = result.completedProcesses;
-                break;
-            case "round-robin":
-                result = roundRobin(processes, 4); // Quantum = 2 (Change if needed)
-                schedule = result.completedProcesses;
-                break;
-            case "mlq":
-                // Implement Multi-Level Queue algorithm
-                // Separate processes into queues
-                let queues = [
-                    processes.filter(p => p.queue === 0), // Queue 1 (Round Robin)
-                    processes.filter(p => p.queue === 1), // Queue 2 (SJF)
-                    processes.filter(p => p.queue === 2)  // Queue 3 (FCFS)
-                ];
-                console.log("Queues:", queues);
-                result = multilevelQueue(queues);
-                console.log("result: ", result.completedProcesses);
-                console.log("Final Process Metrics:");
-                
-                result.processes.forEach(p => {
-                    console.log(`Process ${p.name} -> CT: ${p.completionTime}, TAT: ${p.turnaroundTime}, WT: ${p.waitingTime}, RT: ${p.responseTime}`);
-                });
-                schedule = result.completedProcesses;
-                break;
-            case "mlfq":
-                // Implement Multi-Level Feedback Queue algorithm
-                result = multiLevelFeedbackQueue(processes);
-                
-                schedule = result.completedProcesses;
-                break;
-            default:
-                console.error("Invalid algorithm selected.");
-                return;
-        }
-        let tbody = document.getElementById("processMetrics");
+            switch (algorithm) {
+                case "fcfs":
+                    result = fcfs(processes);
+                    break;
+                case "sjf-nonpreemptive":
+                    result = sjfNonPreemptive(processes);
+                    break;
+                case "sjf-preemptive":
+                    result = sjfPreemptive(processes);
+                    break;
+                case "priority":
+                    result = priorityScheduling(processes);
+                    break;
+                case "priority-preemptive":
+                    result = prioritySchedulingPreemptive(processes);
+                    break;
+                case "round-robin":
+                    result = roundRobin(processes, 4); // Quantum = 4
+                    break;
+                case "mlq":
+                    let queues = [
+                        processes.filter(p => p.queue === 0),
+                        processes.filter(p => p.queue === 1),
+                        processes.filter(p => p.queue === 2)
+                    ];
+                    result = multilevelQueue(queues);
+                    break;
+                case "mlfq":
+                    result = multilevelFeedbackQueue(processes);
+                    break;
+                default:
+                    console.error("Invalid algorithm selected.");
+                    return;
+            }
 
-        // Clear previous table content (if needed)
-        tbody.innerHTML = "";
-        let avg_wt = 0;
-        let avg_tat = 0;
-        let avg_rt = 0;
-        let avg_ct = 0;
-        // Loop through the processes and insert rows into the table
-        result.processes.forEach(p => {
-            let row = document.createElement("tr");
-            avg_wt += p.waitingTime;
-            avg_tat += p.turnaroundTime;
-            avg_rt += p.responseTime;
-            avg_ct += p.completionTime;
-            row.innerHTML = `
-                <td>${p.name}</td>
-                <td>${p.completionTime}</td>
-                <td>${p.turnaroundTime}</td>
-                <td>${p.waitingTime}</td>
-                <td>${p.responseTime}</td>
-            `;
+            schedule = result.completedProcesses;
 
-            tbody.appendChild(row);
-        });
-        avg_wt = avg_wt / result.processes.length;
-        avg_tat = avg_tat / result.processes.length;
-        avg_rt = avg_rt / result.processes.length;
-        avg_ct = avg_ct / result.processes.length;
-        let row = document.createElement("tr");
-        row.innerHTML = `
-            <td>Average</td>
-            <td>${avg_ct}</td>
-            <td>${avg_tat}</td>
-            <td>${avg_wt}</td>
-            <td>${avg_rt}</td>
-        `;
-        tbody.appendChild(row);
+            // Hiển thị kết quả trong bảng Process Metrics
+            let tbody = document.getElementById("processMetrics");
+            tbody.innerHTML = "";
 
-        drawGanttChart(schedule, ctx, canvas);
-    }).catch(error => {
-        console.error("Error reading file:", error);
-    });
-};
+            result.processes.forEach(p => {
+                let row = document.createElement("tr");
+                row.innerHTML = `
+                    <td>${p.name}</td>
+                    <td>${p.completionTime}</td>
+                    <td>${p.turnaroundTime}</td>
+                    <td>${p.waitingTime}</td>
+                    <td>${p.responseTime}</td>
+                `;
+                tbody.appendChild(row);
+            });
 
-
-   
-
+            drawGanttChart(schedule, ctx, canvas);
+        };
     </script>
-    
+
 </body>
 </html>

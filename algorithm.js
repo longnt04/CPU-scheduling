@@ -249,42 +249,42 @@ function prioritySchedulingPreemptive(processes) {
 }
 
 
-function roundRobin(processes, quantum) {
-    let queue = [...processes.map(p => ({ ...p, remaining: p.burst, startTime: -1 }))];
-    let completed = [];
-    let time = 0;
-    let executionOrder = [];
+// function roundRobin(processes, quantum) {
+//     let queue = [...processes.map(p => ({ ...p, remaining: p.burst, startTime: -1 }))];
+//     let completed = [];
+//     let time = 0;
+//     let executionOrder = [];
 
-    while (queue.length > 0) {
-        let current = queue.shift();
+//     while (queue.length > 0) {
+//         let current = queue.shift();
 
-        if (time < current.arrival) {
-            executionOrder.push({ name: 'IDLE', duration: current.arrival - time });
-            time = current.arrival;
-        }
+//         if (time < current.arrival) {
+//             executionOrder.push({ name: 'IDLE', duration: current.arrival - time });
+//             time = current.arrival;
+//         }
 
-        if (current.startTime === -1) {
-            current.startTime = time;
-        }
+//         if (current.startTime === -1) {
+//             current.startTime = time;
+//         }
 
-        let execTime = Math.min(current.remaining, quantum);
-        executionOrder.push({ name: current.name, duration: execTime });
-        current.remaining -= execTime;
-        time += execTime;
+//         let execTime = Math.min(current.remaining, quantum);
+//         executionOrder.push({ name: current.name, duration: execTime });
+//         current.remaining -= execTime;
+//         time += execTime;
 
-        if (current.remaining > 0) {
-            queue.push(current);
-        } else {
-            current.completionTime = time;
-            current.turnaroundTime = current.completionTime - current.arrival;
-            current.waitingTime = current.turnaroundTime - current.burst;
-            current.responseTime = current.startTime - current.arrival;
-            completed.push(current);
-        }
-    }
+//         if (current.remaining > 0) {
+//             queue.push(current);
+//         } else {
+//             current.completionTime = time;
+//             current.turnaroundTime = current.completionTime - current.arrival;
+//             current.waitingTime = current.turnaroundTime - current.burst;
+//             current.responseTime = current.startTime - current.arrival;
+//             completed.push(current);
+//         }
+//     }
 
-    return { completedProcesses: executionOrder, processes: completed };
-}
+//     return { completedProcesses: executionOrder, processes: completed };
+// }
 function multilevelQueue(queues) {
     let time = 0;
     let completed = [];
@@ -361,5 +361,49 @@ function drawGanttChart(schedule, ctx, canvas) {
     ctx.fillText(time, x, 140);
 }
 
+function roundRobin(processes, quantum) {
+    let queue = [...processes.map(p => ({ ...p, remaining: p.burst, startTime: -1 }))];
+    let executionOrder = [];
+    let completed = [];
+    let time = 0;
 
+    while (queue.length > 0) {
+        let processExecuted = false;
+
+        for (let i = 0; i < queue.length; i++) {
+            let current = queue[i];
+
+            if (current.arrival > time) continue; // Skip if process hasn't arrived yet
+
+            processExecuted = true;
+            if (current.startTime === -1) {
+                current.startTime = time;
+            }
+
+            let execTime = Math.min(current.remaining, quantum);
+            executionOrder.push({ name: current.name, duration: execTime });
+            current.remaining -= execTime;
+            time += execTime;
+
+            if (current.remaining === 0) {
+                current.completionTime = time;
+                current.turnaroundTime = current.completionTime - current.arrival;
+                current.waitingTime = current.turnaroundTime - current.burst;
+                current.responseTime = current.startTime - current.arrival;
+                completed.push(current);
+                queue.splice(i, 1);
+                i--;
+            }
+        }
+
+        // If no process executed in this round, add an IDLE slot for waiting time
+        if (!processExecuted && completed.length !== processes.length) {
+            let nextArrival = Math.min(...queue.map(p => p.arrival));
+            executionOrder.push({ name: 'IDLE', duration: nextArrival - time });
+            time = nextArrival;
+        }
+    }
+
+    return { completedProcesses: executionOrder, processes: completed };
+}
 export { readTextFile, fcfs, sjfNonPreemptive, sjfPreemptive, priorityScheduling,prioritySchedulingPreemptive, roundRobin,multilevelFeedbackQueue, multilevelQueue, drawGanttChart };
