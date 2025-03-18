@@ -20,7 +20,7 @@
     <button onclick="generateTable()">Generate Table</button>
 
     <label for="algorithm">Select Algorithm:</label>
-    <select id="algorithm">
+    <select id="algorithm" onchange="toggleQuantumInput()">
         <option value="fcfs">First-Come, First-Served (FCFS)</option>
         <option value="sjf-nonpreemptive">Shortest Job First (Non-Preemptive)</option>
         <option value="sjf-preemptive">Shortest Job First (Preemptive)</option>
@@ -30,6 +30,8 @@
         <option value="mlq">Multi-Level Queue</option>
         <option value="mlfq">Multi-Level Feedback Queue</option>
     </select>
+    <label for="quantum" id="quantumLabel" style="display: none;">Quantum:</label>
+    <input type="number" id="quantum" min="1" value="4" style="display: none;">
     <button onclick="startSimulation()">Start Simulation</button>
 
     <div class="table">
@@ -96,86 +98,134 @@
                 tableBody.appendChild(row);
             }
         };
-
+        window.toggleQuantumInput = function() {
+            const algorithm = document.getElementById("algorithm").value;
+            const quantumLabel = document.getElementById("quantumLabel");
+            const quantumInput = document.getElementById("quantum");
+            if (algorithm === "round-robin") {
+                quantumLabel.style.display = "inline";
+                quantumInput.style.display = "inline";
+            } else {
+                quantumLabel.style.display = "none";
+                quantumInput.style.display = "none";
+            }
+        };
         // Start simulation
         window.startSimulation = function () {
-            let processes = [];
-            let tableRows = document.querySelectorAll("#processTable tr");
+    let processes = [];
+    let tableRows = document.querySelectorAll("#processTable tr");
 
-            // Lấy dữ liệu từ bảng nhập và lưu vào mảng processes
-            tableRows.forEach((row, index) => {
-                let inputs = row.querySelectorAll("input");
-                let process = {
-                    name: `P${index + 1}`,
-                    arrival: parseInt(inputs[0].value),
-                    burst: parseInt(inputs[1].value),
-                    priority: parseInt(inputs[2].value),
-                    queue: parseInt(inputs[3].value)
-                };
-                processes.push(process);
-            });
-
-            console.log("Input Processes:", processes); // Debugging
-
-            const algorithm = document.getElementById("algorithm").value;
-            let result = {};
-            let schedule = [];
-
-            switch (algorithm) {
-                case "fcfs":
-                    result = fcfs(processes);
-                    break;
-                case "sjf-nonpreemptive":
-                    result = sjfNonPreemptive(processes);
-                    break;
-                case "sjf-preemptive":
-                    result = sjfPreemptive(processes);
-                    break;
-                case "priority":
-                    result = priorityScheduling(processes);
-                    break;
-                case "priority-preemptive":
-                    result = prioritySchedulingPreemptive(processes);
-                    break;
-                case "round-robin":
-                    result = roundRobin(processes, 4); // Quantum = 4
-                    break;
-                case "mlq":
-                    let queues = [
-                        processes.filter(p => p.queue === 0),
-                        processes.filter(p => p.queue === 1),
-                        processes.filter(p => p.queue === 2)
-                    ];
-                    result = multilevelQueue(queues);
-                    break;
-                case "mlfq":
-                    result = multilevelFeedbackQueue(processes);
-                    break;
-                default:
-                    console.error("Invalid algorithm selected.");
-                    return;
-            }
-
-            schedule = result.completedProcesses;
-
-            // Hiển thị kết quả trong bảng Process Metrics
-            let tbody = document.getElementById("processMetrics");
-            tbody.innerHTML = "";
-
-            result.processes.forEach(p => {
-                let row = document.createElement("tr");
-                row.innerHTML = `
-                    <td>${p.name}</td>
-                    <td>${p.completionTime}</td>
-                    <td>${p.turnaroundTime}</td>
-                    <td>${p.waitingTime}</td>
-                    <td>${p.responseTime}</td>
-                `;
-                tbody.appendChild(row);
-            });
-
-            drawGanttChart(schedule, ctx, canvas);
+    // Lấy dữ liệu từ bảng nhập và lưu vào mảng processes
+    tableRows.forEach((row, index) => {
+        let inputs = row.querySelectorAll("input");
+        let process = {
+            name: `P${index + 1}`,
+            arrival: parseInt(inputs[0].value),
+            burst: parseInt(inputs[1].value),
+            priority: parseInt(inputs[2].value),
+            queue: parseInt(inputs[3].value)
         };
+        processes.push(process);
+    });
+
+    console.log("Input Processes:", processes); // Debugging
+
+    const algorithm = document.getElementById("algorithm").value;
+    let result = {};
+    let schedule = [];
+
+    switch (algorithm) {
+        case "fcfs":
+            result = fcfs(processes);
+            break;
+        case "sjf-nonpreemptive":
+            result = sjfNonPreemptive(processes);
+            break;
+        case "sjf-preemptive":
+            result = sjfPreemptive(processes);
+            break;
+        case "priority":
+            result = priorityScheduling(processes);
+            break;
+        case "priority-preemptive":
+            result = prioritySchedulingPreemptive(processes);
+            break;
+        case "round-robin":
+            const quantumInput = document.getElementById("quantum");
+            const quantum = quantumInput ? parseInt(quantumInput.value) : 4;
+            result = roundRobin(processes, quantum); 
+            break;
+        case "mlq":
+            let queues = [
+                processes.filter(p => p.queue === 0),
+                processes.filter(p => p.queue === 1),
+                processes.filter(p => p.queue === 2)
+            ];
+            result = multilevelQueue(queues);
+            break;
+        case "mlfq":
+            result = multilevelFeedbackQueue(processes);
+            break;
+        default:
+            console.error("Invalid algorithm selected.");
+            return;
+    }
+
+    schedule = result.completedProcesses;
+
+    // Hiển thị kết quả trong bảng Process Metrics
+    let tbody = document.getElementById("processMetrics");
+    tbody.innerHTML = "";
+
+    let totalCompletion = 0, totalTurnaround = 0, totalWaiting = 0, totalResponse = 0;
+    let numProcesses = result.processes.length;
+
+    result.processes.forEach(p => {
+        let row = document.createElement("tr");
+        row.innerHTML = `
+            <td>${p.name}</td>
+            <td>${p.completionTime}</td>
+            <td>${p.turnaroundTime}</td>
+            <td>${p.waitingTime}</td>
+            <td>${p.responseTime}</td>
+        `;
+        tbody.appendChild(row);
+
+        totalCompletion += p.completionTime;
+        totalTurnaround += p.turnaroundTime;
+        totalWaiting += p.waitingTime;
+        totalResponse += p.responseTime;
+    });
+    let totalRow = document.createElement("tr");
+    totalRow.style.fontWeight = "bold"; // Đậm hơn để dễ nhận biết
+    totalRow.innerHTML = `
+        <td>Total</td>
+        <td>${(totalCompletion).toFixed(2)}</td>
+        <td>${(totalTurnaround).toFixed(2)}</td>
+        <td>${(totalWaiting).toFixed(2)}</td>
+        <td>${(totalResponse).toFixed(2)}</td>
+    `;
+    tbody.appendChild(totalRow);
+    // Thêm hàng trung bình
+    let avgRow = document.createElement("tr");
+    avgRow.style.fontWeight = "bold"; // Đậm hơn để dễ nhận biết
+    avgRow.innerHTML = `
+        <td>Average</td>
+        <td>${(totalCompletion / numProcesses).toFixed(2)}</td>
+        <td>${(totalTurnaround / numProcesses).toFixed(2)}</td>
+        <td>${(totalWaiting / numProcesses).toFixed(2)}</td>
+        <td>${(totalResponse / numProcesses).toFixed(2)}</td>
+    `;
+    tbody.appendChild(avgRow);
+
+    
+
+    drawGanttChart(schedule, ctx, canvas);
+};
+    document.addEventListener("DOMContentLoaded", function () {
+                toggleQuantumInput();
+    });
+
     </script>
 
 </body>

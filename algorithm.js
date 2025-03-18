@@ -350,13 +350,13 @@ function drawGanttChart(schedule, ctx, canvas) {
         } else {
             ctx.fillStyle = `hsl(${(index * 60) % 360}, 70%, 50%)`;
         }
-        ctx.fillRect(x, 75, task.duration * 20, barHeight);
-        ctx.strokeRect(x, 75, task.duration * 20, barHeight);
+        ctx.fillRect(x, 75, 2 * 20, barHeight);
+        ctx.strokeRect(x, 75, 2 * 20, barHeight);
         ctx.fillStyle = "black";
         ctx.fillText(task.name, x + 5, 100);
         ctx.fillText(time, x, 140);
         time += task.duration;
-        x += task.duration * 20;
+        x += 2 * 20;
     }
     ctx.fillText(time, x, 140);
 }
