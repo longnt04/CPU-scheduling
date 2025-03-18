@@ -1,0 +1,5 @@
+process_name arrival_time burst_time priority queue
+P1 0 2 2 0
+P2 4 6 1 0
+P3 5 2 4 1
+P4 6 7 3 1

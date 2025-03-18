@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CPU Scheduling Visualization</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; justify-content: center; }
+        canvas { border: 1px solid black; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>CPU Scheduling Algorithms Visualization</h1>
+    <input type="file" id="fileInput">
+    <label for="algorithm">Select Algorithm:</label>
+    <select id="algorithm">
+        <option value="fcfs">First-Come, First-Served (FCFS)</option>
+        <option value="sjf-nonpreemptive">Shortest Job First (Non-Preemptive)</option>
+        <option value="sjf-preemptive">Shortest Job First (Preemptive)</option>
+        <option value="priority">Priority Scheduling</option>
+        <option value="priority-preemptive">Priority Scheduling (Preemptive)</option>
+        <option value="round-robin">Round Robin</option>
+        <option value="mlq">Multi-Level Queue</option>
+        <option value="mlfq">Multi-Level Feedback Queue</option>
+    </select>
+    <button onclick="startSimulation()">Start</button>
+    <div class="chart">
+        <p style="margin-left: 10px; font-weight: 600;">Gantt Chart</p>
+        <canvas id="ganttChart" width="800" height="200"></canvas>
+    </div>
+    <div class="table" >
+        <p style="margin-left: 10px; font-weight: 600;">Process Metrics</p>
+        <table style=" border-collapse: collapse; width: 50%;" border="1">
+            <thead>
+                <tr>
+                    <th style="border: 1px solid black; padding: 8px;">Process</th>
+                    <th style="border: 1px solid black; padding: 8px;">Completion Time</th>
+                    <th style="border: 1px solid black; padding: 8px;">Turnaround Time</th>
+                    <th style="border: 1px solid black; padding: 8px;">Waiting Time</th>
+                    <th style="border: 1px solid black; padding: 8px;">Response Time</th>
+                </tr>
+            </thead>
+            <tbody id="processMetrics"></tbody>
+        </table>
+        
+    </div>
+    <script type="module">
+        import { readTextFile, fcfs, sjfNonPreemptive, sjfPreemptive, priorityScheduling, 
+            prioritySchedulingPreemptive, roundRobin,multilevelFeedbackQueue, multilevelQueue, drawGanttChart } from "./algorithm.js";
+    
+        const canvas = document.getElementById("ganttChart");
+        const ctx = canvas.getContext("2d");
+    
+        window.startSimulation = function () {
+    const fileInput = document.getElementById("fileInput");
+    
+    if (!fileInput.files.length) {
+        console.error("No file selected.");
+        return;
+    }
+
+    const file = fileInput.files[0];
+
+    readTextFile(file).then((processes) => {
+        console.log("Parsed Data:", processes); // Debugging
+
+        const algorithm = document.getElementById("algorithm").value;
+        let schedule = [];
+        let result = {};
+
+        switch (algorithm) {
+            case "fcfs":
+                result = fcfs(processes);
+                console.log("result: ", result.completedProcesses);
+                console.log("Final Process Metrics:");
+                
+                result.processes.forEach(p => {
+                    console.log(`Process ${p.name} -> CT: ${p.completionTime}, TAT: ${p.turnaroundTime}, WT: ${p.waitingTime}, RT: ${p.responseTime}`);
+                });
+                schedule = result.completedProcesses;
+                break;
+            case "sjf-nonpreemptive":
+                result = sjfPreemptive(processes);
+                schedule = result.completedProcesses;
+                break;
+            case "sjf-preemptive":
+                result = sjfPreemptive(processes);
+                console.log("result: ", result.completedProcesses);
+                console.log("Final Process Metrics:");
+                result.processes.forEach(p => {
+                    console.log(`Process ${p.name} -> CT: ${p.completionTime}, TAT: ${p.turnaroundTime}, WT: ${p.waitingTime}, RT: ${p.responseTime}`);
+                });
+                schedule = result.completedProcesses;
+                break;
+            case "priority":
+                result = priorityScheduling(processes);
+                console.log("result: ", result.completedProcesses);
+                console.log("Final Process Metrics:");
+                
+                result.processes.forEach(p => {
+                    console.log(`Process ${p.name} -> CT: ${p.completionTime}, TAT: ${p.turnaroundTime}, WT: ${p.waitingTime}, RT: ${p.responseTime}`);
+                });
+                schedule = result.completedProcesses;
+                break;
+            case "priority-preemptive":
+                result = prioritySchedulingPreemptive(processes);
+                console.log("result: ", result.completedProcesses);
+                console.log("Final Process Metrics:");
+                
+                result.processes.forEach(p => {
+                    console.log(`Process ${p.name} -> CT: ${p.completionTime}, TAT: ${p.turnaroundTime}, WT: ${p.waitingTime}, RT: ${p.responseTime}`);
+                });
+                schedule = result.completedProcesses;
+                break;
+            case "round-robin":
+                result = roundRobin(processes, 4); // Quantum = 2 (Change if needed)
+                schedule = result.completedProcesses;
+                break;
+            case "mlq":
+                // Implement Multi-Level Queue algorithm
+                // Separate processes into queues
+                let queues = [
+                    processes.filter(p => p.queue === 0), // Queue 1 (Round Robin)
+                    processes.filter(p => p.queue === 1), // Queue 2 (SJF)
+                    processes.filter(p => p.queue === 2)  // Queue 3 (FCFS)
+                ];
+                console.log("Queues:", queues);
+                result = multilevelQueue(queues);
+                console.log("result: ", result.completedProcesses);
+                console.log("Final Process Metrics:");
+                
+                result.processes.forEach(p => {
+                    console.log(`Process ${p.name} -> CT: ${p.completionTime}, TAT: ${p.turnaroundTime}, WT: ${p.waitingTime}, RT: ${p.responseTime}`);
+                });
+                schedule = result.completedProcesses;
+                break;
+            case "mlfq":
+                // Implement Multi-Level Feedback Queue algorithm
+                result = multiLevelFeedbackQueue(processes);
+                
+                schedule = result.completedProcesses;
+                break;
+            default:
+                console.error("Invalid algorithm selected.");
+                return;
+        }
+        let tbody = document.getElementById("processMetrics");
+
+        // Clear previous table content (if needed)
+        tbody.innerHTML = "";
+        let avg_wt = 0;
+        let avg_tat = 0;
+        let avg_rt = 0;
+        let avg_ct = 0;
+        // Loop through the processes and insert rows into the table
+        result.processes.forEach(p => {
+            let row = document.createElement("tr");
+            avg_wt += p.waitingTime;
+            avg_tat += p.turnaroundTime;
+            avg_rt += p.responseTime;
+            avg_ct += p.completionTime;
+            row.innerHTML = `
+                <td>${p.name}</td>
+                <td>${p.completionTime}</td>
+                <td>${p.turnaroundTime}</td>
+                <td>${p.waitingTime}</td>
+                <td>${p.responseTime}</td>
+            `;
+
+            tbody.appendChild(row);
+        });
+        avg_wt = avg_wt / result.processes.length;
+        avg_tat = avg_tat / result.processes.length;
+        avg_rt = avg_rt / result.processes.length;
+        avg_ct = avg_ct / result.processes.length;
+        let row = document.createElement("tr");
+        row.innerHTML = `
+            <td>Average</td>
+            <td>${avg_ct}</td>
+            <td>${avg_tat}</td>
+            <td>${avg_wt}</td>
+            <td>${avg_rt}</td>
+        `;
+        tbody.appendChild(row);
+
+        drawGanttChart(schedule, ctx, canvas);
+    }).catch(error => {
+        console.error("Error reading file:", error);
+    });
+};
+
+
+   
+
+    </script>
+    
+</body>
+</html>
