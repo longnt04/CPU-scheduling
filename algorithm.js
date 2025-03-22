@@ -52,7 +52,7 @@ function sjfNonPreemptive(processes) {
         let available = processes.filter(p => p.arrival <= time);
 
         if (available.length > 0) {
-            // available.sort((a, b) => a.burst - b.burst);
+            available.sort((a, b) => a.burst - b.burst);
             let next = available[0];
 
             // If the CPU is idle before processing
@@ -198,55 +198,63 @@ function priorityScheduling(processes) {
 function prioritySchedulingPreemptive(processes) {
     let time = 0;
     let completed = [];
-    let queue = [...processes].map(p => ({ ...p, remaining: p.burst }));
-    let executingProcess = null;
+    let queue = processes.map(p => ({ ...p, remaining: p.burst, responseTime: -1 }));
     let ganttChart = [];
     let n = processes.length;
-    let completedTime = 0;
-    while (completedTime < n) {
+    let completedCount = 0;
+    let lastProcessName = null;
+
+    while (completedCount < n) {
+        // Lấy các tiến trình đã đến và chưa hoàn thành
         let available = queue.filter(p => p.arrival <= time && p.remaining > 0);
 
         if (available.length > 0) {
+            // Ưu tiên theo priority, nếu bằng thì xét arrival
             available.sort((a, b) => a.priority === b.priority ? a.arrival - b.arrival : a.priority - b.priority);
-            let nextProcess = available[0];
+            let current = available[0];
 
-            if (!executingProcess || nextProcess.name !== executingProcess.name) {
-                if (executingProcess) {
-                    ganttChart.push({ name: executingProcess.name, duration: time - executingProcess.startTime });
-                }
-
-                executingProcess = { ...nextProcess, startTime: time };
-                if (executingProcess.responseTime === undefined) {
-                    executingProcess.responseTime = time - executingProcess.arrival;
-                }
+            // Lưu response time lần đầu tiên tiến trình chạy
+            if (current.responseTime === -1) {
+                current.responseTime = time - current.arrival;
             }
-           
-            executingProcess.remaining--;
+
+            // Ghi vào Gantt Chart nếu process thay đổi
+            if (lastProcessName !== current.name) {
+                ganttChart.push({ name: current.name, start: time });
+                lastProcessName = current.name;
+            }
+
+            // Tiến hành chạy 1 đơn vị thời gian
+            current.remaining--;
             time++;
-            if(executingProcess.name === 'P1'){
-                console.log("Time: ",time);
-                console.log('P1',executingProcess);
-            }
-            if (executingProcess.remaining === 0) {
-                if(executingProcess.name === 'P1'){
-                    console.log('P1 remain = 0: ',executingProcess);
-                }
-                executingProcess.completionTime = time;
-                executingProcess.turnaroundTime = executingProcess.completionTime - executingProcess.arrival;
-                executingProcess.waitingTime = executingProcess.turnaroundTime - executingProcess.burst;
-                completed.push(executingProcess);
-                queue = queue.map(p => (p.name === executingProcess.name ? { ...p, remaining: 0 } : p));
-                completedTime++;
-                ganttChart.push({ name: executingProcess.name, duration: time - executingProcess.startTime });
-                executingProcess = null;
+
+            // Nếu hoàn thành
+            if (current.remaining === 0) {
+                current.completionTime = time;
+                current.turnaroundTime = current.completionTime - current.arrival;
+                current.waitingTime = current.turnaroundTime - current.burst;
+                completed.push(current);
+                completedCount++;
             }
         } else {
+            // Không có tiến trình sẵn sàng -> CPU IDLE
+            if (lastProcessName !== "IDLE") {
+                ganttChart.push({ name: "IDLE", start: time });
+                lastProcessName = "IDLE";
+            }
             time++;
         }
     }
 
-    return { processes: completed, completedProcesses: ganttChart };
+    // Tính duration cho Gantt Chart
+    ganttChart = ganttChart.map((entry, index) => {
+        let end = index < ganttChart.length - 1 ? ganttChart[index + 1].start : time;
+        return { name: entry.name, start: entry.start, duration: end - entry.start };
+    });
+
+    return { processes: completed, completedProcesses: ganttChart};
 }
+
 
 
 // function roundRobin(processes, quantum) {
