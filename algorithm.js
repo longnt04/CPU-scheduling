@@ -377,7 +377,7 @@ function roundRobin(processes, quantum) {
 
     while (queue.length > 0) {
         let processExecuted = false;
-
+        queue.sort((a, b) => a.arrival - b.arrival); // Sort by arrival time
         for (let i = 0; i < queue.length; i++) {
             let current = queue[i];
 
